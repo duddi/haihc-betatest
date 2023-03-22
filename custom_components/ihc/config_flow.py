@@ -1,7 +1,6 @@
-"""Config flow for IHC integration."""
-import logging
+from typing import Any, Dict, Optional
 
-from ihcsdk.ihccontroller import IHCController
+import logging
 import voluptuous as vol
 
 from homeassistant import config_entries, exceptions
@@ -9,11 +8,14 @@ from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import AbortFlow, FlowResult
 
+from ihcsdk.ihccontroller import IHCController
+
 from .const import CONF_AUTOSETUP, DOMAIN
 from .util import get_controller_serial
 
-CONFIG_FLOW_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_FLOW_VERSION = 1
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -25,17 +27,14 @@ DATA_SCHEMA = vol.Schema(
 )
 
 
-def do_validate(hass: HomeAssistant, user_input) -> str:
-    """Validate the user input.
-
-    Return the IHC controller serial number
-    """
+def do_validate(hass: HomeAssistant, user_input: Dict[str, Any]) -> str:
     url = user_input[CONF_URL]
     username = user_input[CONF_USERNAME]
     password = user_input[CONF_PASSWORD]
-    # Do we have an IHC controller on this url
+
     if not IHCController.is_ihc_controller(url):
         raise CannotConnect()
+
     ihc_controller = IHCController(url, username, password)
     try:
         if not ihc_controller.authenticate():
@@ -43,18 +42,17 @@ def do_validate(hass: HomeAssistant, user_input) -> str:
         serial = get_controller_serial(ihc_controller)
     finally:
         ihc_controller.disconnect()
+
     return serial
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for IHC."""
-
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
-        """Handle the initial step."""
+    async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None) -> FlowResult:
         errors = {}
+
         if user_input is not None:
             try:
                 serialnumber = await self.hass.async_add_executor_job(
@@ -69,7 +67,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_auth"
             except AbortFlow:
                 errors["base"] = "already_setup"
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
 
